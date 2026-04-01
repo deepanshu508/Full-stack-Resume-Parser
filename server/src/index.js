@@ -14,6 +14,9 @@ import Candidate from "./models/Candidate.js";
 dotenv.config();
 
 const app = express();
+app.get("/", (req, res) => {
+  res.send("Resume Parser API is running 🚀");
+});
 const port = process.env.PORT || 5000;
 const mongoUri = process.env.MONGODB_URI;
 console.log("Mongo URI:", mongoUri);
