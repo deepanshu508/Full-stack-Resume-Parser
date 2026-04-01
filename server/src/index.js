@@ -16,6 +16,7 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 5000;
 const mongoUri = process.env.MONGODB_URI;
+console.log("Mongo URI:", mongoUri);
 const openAiApiKey = process.env.OPENAI_API_KEY;
 const openAiModel = process.env.OPENAI_MODEL || "gpt-5.2";
 const __filename = fileURLToPath(import.meta.url);
