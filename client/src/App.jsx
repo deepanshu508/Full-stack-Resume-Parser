@@ -105,6 +105,7 @@ export default function App() {
   const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
   const [projects, setProjects] = useState([]);
   const [jobs, setJobs] = useState([]);
+  const [projectSummaryCandidates, setProjectSummaryCandidates] = useState([]);
 
   const fetchProjects = async () => {
     try {
@@ -138,6 +139,26 @@ export default function App() {
       setJobs(Array.isArray(data) ? data : []);
     } catch (_error) {
       setJobs([]);
+    }
+  };
+
+  const fetchProjectSummaryCandidates = async (projectId) => {
+    if (!projectId) {
+      setProjectSummaryCandidates([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/projects/${projectId}/candidates`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error("Could not load project summary.");
+      }
+
+      setProjectSummaryCandidates(Array.isArray(data) ? data : []);
+    } catch (_error) {
+      setProjectSummaryCandidates([]);
     }
   };
 
@@ -221,11 +242,48 @@ export default function App() {
     if (name === "project_id") {
       nextFilters.job_id = "";
       fetchJobsByProject(value);
+      fetchProjectSummaryCandidates(value);
+    }
+
+    if (name === "job_id" && !value && filters.project_id) {
+      fetchProjectSummaryCandidates(filters.project_id);
     }
 
     setFilters(nextFilters);
     fetchCandidates(nextFilters);
   };
+
+  const handleJobCardClick = (jobId) => {
+    const nextFilters = {
+      ...filters,
+      job_id: jobId
+    };
+
+    setFilters(nextFilters);
+    fetchCandidates(nextFilters);
+  };
+
+  const jobSummaryCards = jobs.map((job) => {
+    const relatedCandidates = projectSummaryCandidates.filter(
+      (candidate) => String(candidate.job_id) === String(job._id)
+    );
+
+    return {
+      _id: job._id,
+      title: job.title,
+      location: job.location,
+      totalCandidates: relatedCandidates.length,
+      shortlistedCount: relatedCandidates.filter(
+        (candidate) => candidate.status === "Interested"
+      ).length,
+      interviewCount: relatedCandidates.filter(
+        (candidate) => candidate.status === "Interview Scheduled"
+      ).length,
+      rejectedCount: relatedCandidates.filter(
+        (candidate) => candidate.status === "Not Interested"
+      ).length
+    };
+  });
 
   const handleCandidateFieldChange = (candidateId, field, value) => {
     setCandidates((currentCandidates) =>
@@ -396,6 +454,10 @@ export default function App() {
                 isLoadingCandidates={isLoadingCandidates}
                 projects={projects}
                 jobs={jobs}
+                selectedProjectId={filters.project_id}
+                selectedJobId={filters.job_id}
+                jobSummaryCards={jobSummaryCards}
+                handleJobCardClick={handleJobCardClick}
                 selectedWhatsAppTemplate={selectedWhatsAppTemplate}
                 setSelectedWhatsAppTemplate={setSelectedWhatsAppTemplate}
                 whatsAppTemplateOptions={whatsAppTemplateOptions}

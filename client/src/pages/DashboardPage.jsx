@@ -5,6 +5,10 @@ export default function DashboardPage({
   isLoadingCandidates,
   projects,
   jobs,
+  selectedProjectId,
+  selectedJobId,
+  jobSummaryCards,
+  handleJobCardClick,
   selectedWhatsAppTemplate,
   setSelectedWhatsAppTemplate,
   whatsAppTemplateOptions,
@@ -128,6 +132,36 @@ export default function DashboardPage({
             Send WhatsApp
           </button>
         </div>
+
+        {selectedProjectId ? (
+          <div className="filters">
+            {jobSummaryCards.length ? (
+              jobSummaryCards.map((job) => (
+                <button
+                  key={job._id}
+                  className="table-button"
+                  type="button"
+                  onClick={() => handleJobCardClick(job._id)}
+                  disabled={selectedJobId === job._id}
+                >
+                  {job.title || "Untitled Job"}
+                  <br />
+                  {job.location || "-"}
+                  <br />
+                  Total: {job.totalCandidates}
+                  <br />
+                  Shortlisted: {job.shortlistedCount}
+                  <br />
+                  Interview: {job.interviewCount}
+                  <br />
+                  Rejected: {job.rejectedCount}
+                </button>
+              ))
+            ) : (
+              <p className="empty-state">No jobs found for this project yet.</p>
+            )}
+          </div>
+        ) : null}
 
         <div className="table-wrap">
           <table>
