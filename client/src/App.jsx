@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import DashboardPage from "./pages/DashboardPage";
-import ManagePage from "./pages/ManagePage";
-import UploadPage from "./pages/UploadPage";
+import ProjectDetailPage from "./pages/ProjectDetailPage";
+import ProjectsPage from "./pages/ProjectsPage";
 
 const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const statusOptions = [
@@ -86,38 +86,12 @@ const isContactStale = (value) => {
     return true;
   }
 
-  const diffInMs = Date.now() - date.getTime();
-  return diffInMs >= 2 * 24 * 60 * 60 * 1000;
+  return Date.now() - date.getTime() >= 2 * 24 * 60 * 60 * 1000;
 };
 
 export default function App() {
   const [message, setMessage] = useState("Loading...");
-  const [file, setFile] = useState(null);
-  const [uploadedBy, setUploadedBy] = useState("");
-  const [clientForm, setClientForm] = useState({
-    name: "",
-    industry: "",
-    contact_person: "",
-    email: ""
-  });
-  const [jobForm, setJobForm] = useState({
-    title: "",
-    client_id: "",
-    location: "",
-    min_experience: "",
-    max_experience: "",
-    skills: "",
-    description: ""
-  });
-  const [clients, setClients] = useState([]);
-  const [jobs, setJobs] = useState([]);
-  const [selectedClientId, setSelectedClientId] = useState("");
-  const [selectedJobId, setSelectedJobId] = useState("");
-  const [uploadMessage, setUploadMessage] = useState("");
-  const [isUploading, setIsUploading] = useState(false);
-  const [isSavingClient, setIsSavingClient] = useState(false);
-  const [isSavingJob, setIsSavingJob] = useState(false);
-  const [parsedResume, setParsedResume] = useState(null);
+  const [appMessage, setAppMessage] = useState("");
   const [candidates, setCandidates] = useState([]);
   const [filters, setFilters] = useState({
     location: "",
@@ -134,41 +108,6 @@ export default function App() {
     "interviewInvite"
   );
   const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
-
-  const fetchClients = async () => {
-    try {
-      const response = await fetch(`${apiUrl}/clients`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error("Could not load clients.");
-      }
-
-      setClients(Array.isArray(data) ? data : []);
-    } catch (_error) {
-      setClients([]);
-    }
-  };
-
-  const fetchJobsByClient = async (clientId) => {
-    if (!clientId) {
-      setJobs([]);
-      return;
-    }
-
-    try {
-      const response = await fetch(`${apiUrl}/clients/${clientId}/jobs`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error("Could not load jobs.");
-      }
-
-      setJobs(Array.isArray(data) ? data : []);
-    } catch (_error) {
-      setJobs([]);
-    }
-  };
 
   const fetchCandidates = async (nextFilters = filters) => {
     try {
@@ -241,206 +180,7 @@ export default function App() {
 
     fetchHealth();
     fetchCandidates();
-    fetchClients();
   }, []);
-
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    if (!file) {
-      setUploadMessage("Please choose a file first.");
-      return;
-    }
-
-    if (!uploadedBy.trim()) {
-      setUploadMessage("Please enter your name or email.");
-      return;
-    }
-
-    if (!selectedClientId) {
-      setUploadMessage("Please select a client.");
-      return;
-    }
-
-    if (!selectedJobId) {
-      setUploadMessage("Please select a job.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("resume", file);
-    formData.append("uploadedBy", uploadedBy.trim());
-    formData.append("client_id", selectedClientId);
-    formData.append("job_id", selectedJobId);
-
-    try {
-      setIsUploading(true);
-      setUploadMessage("");
-      setParsedResume(null);
-
-      const response = await fetch(`${apiUrl}/upload`, {
-        method: "POST",
-        body: formData
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Upload failed.");
-      }
-
-      setUploadMessage(`${data.message}: ${data.fileName}`);
-      setParsedResume({
-        name: data.name || "",
-        phone: data.phone || "",
-        location: data.location || "",
-        uploadedBy: data.uploadedBy || "",
-        status: data.status || "New",
-        remarks: data.remarks || "",
-        lastContacted: data.lastContacted || null,
-        skills: Array.isArray(data.skills) ? data.skills : [],
-        experience: data.experience || ""
-      });
-      setFile(null);
-      event.target.reset();
-      fetchCandidates();
-    } catch (error) {
-      setUploadMessage(error.message || "Upload failed.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleClientFormChange = (event) => {
-    setClientForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value
-    }));
-  };
-
-  const handleJobFormChange = (event) => {
-    setJobForm((current) => ({
-      ...current,
-      [event.target.name]: event.target.value
-    }));
-  };
-
-  const handleCreateClient = async (event) => {
-    event.preventDefault();
-
-    if (!clientForm.name.trim()) {
-      setUploadMessage("Client name is required.");
-      return;
-    }
-
-    try {
-      setIsSavingClient(true);
-      setUploadMessage("");
-
-      const response = await fetch(`${apiUrl}/clients`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          name: clientForm.name,
-          industry: clientForm.industry,
-          contact_person: clientForm.contact_person,
-          email: clientForm.email
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Could not save client.");
-      }
-
-      await fetchClients();
-      setSelectedClientId(data._id);
-      setSelectedJobId("");
-      setJobs([]);
-      setClientForm({
-        name: "",
-        industry: "",
-        contact_person: "",
-        email: ""
-      });
-      setJobForm((current) => ({
-        ...current,
-        client_id: data._id
-      }));
-      setUploadMessage("Client saved successfully.");
-    } catch (error) {
-      setUploadMessage(error.message || "Could not save client.");
-    } finally {
-      setIsSavingClient(false);
-    }
-  };
-
-  const handleCreateJob = async (event) => {
-    event.preventDefault();
-
-    if (!jobForm.title.trim()) {
-      setUploadMessage("Job title is required.");
-      return;
-    }
-
-    if (!jobForm.client_id) {
-      setUploadMessage("Please select a client for the job.");
-      return;
-    }
-
-    try {
-      setIsSavingJob(true);
-      setUploadMessage("");
-
-      const response = await fetch(`${apiUrl}/jobs`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          title: jobForm.title,
-          client_id: jobForm.client_id,
-          location: jobForm.location,
-          min_experience: jobForm.min_experience,
-          max_experience: jobForm.max_experience,
-          skills: jobForm.skills
-            .split(",")
-            .map((skill) => skill.trim())
-            .filter(Boolean),
-          description: jobForm.description
-        })
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Could not save job.");
-      }
-
-      if (selectedClientId === jobForm.client_id) {
-        await fetchJobsByClient(jobForm.client_id);
-        setSelectedJobId(data._id);
-      }
-
-      setJobForm({
-        title: "",
-        client_id: jobForm.client_id,
-        location: "",
-        min_experience: "",
-        max_experience: "",
-        skills: "",
-        description: ""
-      });
-      setUploadMessage("Job saved successfully.");
-    } catch (error) {
-      setUploadMessage(error.message || "Could not save job.");
-    } finally {
-      setIsSavingJob(false);
-    }
-  };
 
   const handleFilterChange = (event) => {
     const nextFilters = {
@@ -486,8 +226,9 @@ export default function App() {
           item._id === candidate._id ? data.candidate : item
         )
       );
+      setAppMessage("Candidate updated.");
     } catch (error) {
-      setUploadMessage(error.message || "Could not update candidate.");
+      setAppMessage(error.message || "Could not update candidate.");
     } finally {
       setUpdatingCandidateId("");
     }
@@ -496,34 +237,29 @@ export default function App() {
   const markCandidateContacted = async (candidate) => {
     const timestamp = new Date().toISOString();
 
-    try {
-      const response = await fetch(`${apiUrl}/candidate/${candidate._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          status: candidate.status || "New",
-          remarks: candidate.remarks || "",
-          lastContacted: timestamp
-        })
-      });
+    const response = await fetch(`${apiUrl}/candidate/${candidate._id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        status: candidate.status || "New",
+        remarks: candidate.remarks || "",
+        lastContacted: timestamp
+      })
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Could not update last contacted date.");
-      }
-
-      setCandidates((currentCandidates) =>
-        currentCandidates.map((item) =>
-          item._id === candidate._id ? data.candidate : item
-        )
-      );
-    } catch (error) {
-      setUploadMessage(error.message || "Could not update last contacted date.");
-      throw error;
+    if (!response.ok) {
+      throw new Error(data.message || "Could not update last contacted date.");
     }
+
+    setCandidates((currentCandidates) =>
+      currentCandidates.map((item) =>
+        item._id === candidate._id ? data.candidate : item
+      )
+    );
   };
 
   const handleCandidateSelect = (candidateId) => {
@@ -557,14 +293,15 @@ export default function App() {
     );
 
     if (!candidatesWithLinks.length) {
-      setUploadMessage("Please select at least one candidate with a valid phone number.");
+      setAppMessage("Please select at least one candidate with a valid phone number.");
       return;
     }
 
     for (const candidate of candidatesWithLinks) {
       try {
         await markCandidateContacted(candidate);
-      } catch (_error) {
+      } catch (error) {
+        setAppMessage(error.message || "Could not update last contacted date.");
         return;
       }
     }
@@ -582,8 +319,8 @@ export default function App() {
     try {
       await markCandidateContacted(candidate);
       window.open(link, "_blank", "noopener,noreferrer");
-    } catch (_error) {
-      return;
+    } catch (error) {
+      setAppMessage(error.message || "Could not update last contacted date.");
     }
   };
 
@@ -598,23 +335,22 @@ export default function App() {
     <main className="app">
       <div className="layout">
         <p>
-          Step 1: Create a Client and Job in Manage section
+          Step 1: Create a hiring project in Projects section
           <br />
-          Step 2: Upload candidates in Upload section
+          Step 2: Open the project and upload candidates
           <br />
-          Step 3: View candidates in Dashboard
+          Step 3: View all candidates in Dashboard
         </p>
 
         <nav>
           <NavLink to="/dashboard">Dashboard</NavLink>{" "}
-          <NavLink to="/manage">Clients & Jobs</NavLink>{" "}
-          <NavLink to="/upload">Upload Candidate</NavLink>
+          <NavLink to="/projects">Projects</NavLink>
         </nav>
 
-        {uploadMessage ? <p className="upload-message">{uploadMessage}</p> : null}
+        {appMessage ? <p className="upload-message">{appMessage}</p> : null}
 
         <Routes>
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<Navigate to="/projects" replace />} />
           <Route
             path="/dashboard"
             element={
@@ -644,44 +380,25 @@ export default function App() {
             }
           />
           <Route
-            path="/manage"
-            element={
-              <ManagePage
-                clientForm={clientForm}
-                handleClientFormChange={handleClientFormChange}
-                handleCreateClient={handleCreateClient}
-                isSavingClient={isSavingClient}
-                jobForm={jobForm}
-                handleJobFormChange={handleJobFormChange}
-                handleCreateJob={handleCreateJob}
-                isSavingJob={isSavingJob}
-                clients={clients}
-              />
-            }
+            path="/projects"
+            element={<ProjectsPage apiUrl={apiUrl} serverMessage={message} />}
           />
           <Route
-            path="/upload"
+            path="/projects/:projectId"
             element={
-              <UploadPage
-                message={message}
-                uploadedBy={uploadedBy}
-                setUploadedBy={setUploadedBy}
-                clients={clients}
-                selectedClientId={selectedClientId}
-                setSelectedClientId={setSelectedClientId}
-                jobs={jobs}
-                selectedJobId={selectedJobId}
-                setSelectedJobId={setSelectedJobId}
-                fetchJobsByClient={fetchJobsByClient}
-                file={file}
-                setFile={setFile}
-                handleSubmit={handleSubmit}
-                isUploading={isUploading}
-                uploadMessage=""
-                parsedResume={parsedResume}
+              <ProjectDetailPage
+                apiUrl={apiUrl}
+                serverMessage={message}
+                statusOptions={statusOptions}
+                whatsAppTemplateOptions={whatsAppTemplateOptions}
+                getWhatsAppLink={getWhatsAppLink}
+                formatLastContacted={formatLastContacted}
+                isContactStale={isContactStale}
               />
             }
           />
+          <Route path="/manage" element={<Navigate to="/projects" replace />} />
+          <Route path="/upload" element={<Navigate to="/projects" replace />} />
         </Routes>
       </div>
     </main>

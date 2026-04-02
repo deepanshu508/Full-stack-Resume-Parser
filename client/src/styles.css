@@ -24,6 +24,12 @@ body {
   gap: 24px;
 }
 
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
 .card {
   background: #ffffff;
   border-radius: 16px;
