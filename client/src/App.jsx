@@ -90,12 +90,29 @@ export default function App() {
   const [message, setMessage] = useState("Loading...");
   const [file, setFile] = useState(null);
   const [uploadedBy, setUploadedBy] = useState("");
+  const [clientForm, setClientForm] = useState({
+    name: "",
+    industry: "",
+    contact_person: "",
+    email: ""
+  });
+  const [jobForm, setJobForm] = useState({
+    title: "",
+    client_id: "",
+    location: "",
+    min_experience: "",
+    max_experience: "",
+    skills: "",
+    description: ""
+  });
   const [clients, setClients] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState("");
   const [selectedJobId, setSelectedJobId] = useState("");
   const [uploadMessage, setUploadMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [isSavingClient, setIsSavingClient] = useState(false);
+  const [isSavingJob, setIsSavingJob] = useState(false);
   const [parsedResume, setParsedResume] = useState(null);
   const [candidates, setCandidates] = useState([]);
   const [filters, setFilters] = useState({
@@ -290,6 +307,137 @@ export default function App() {
     }
   };
 
+  const handleClientFormChange = (event) => {
+    setClientForm((current) => ({
+      ...current,
+      [event.target.name]: event.target.value
+    }));
+  };
+
+  const handleJobFormChange = (event) => {
+    setJobForm((current) => ({
+      ...current,
+      [event.target.name]: event.target.value
+    }));
+  };
+
+  const handleCreateClient = async (event) => {
+    event.preventDefault();
+
+    if (!clientForm.name.trim()) {
+      setUploadMessage("Client name is required.");
+      return;
+    }
+
+    try {
+      setIsSavingClient(true);
+      setUploadMessage("");
+
+      const response = await fetch(`${apiUrl}/clients`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: clientForm.name,
+          industry: clientForm.industry,
+          contact_person: clientForm.contact_person,
+          email: clientForm.email
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Could not save client.");
+      }
+
+      await fetchClients();
+      setSelectedClientId(data._id);
+      setSelectedJobId("");
+      setJobs([]);
+      setClientForm({
+        name: "",
+        industry: "",
+        contact_person: "",
+        email: ""
+      });
+      setJobForm((current) => ({
+        ...current,
+        client_id: data._id
+      }));
+      setUploadMessage("Client saved successfully.");
+    } catch (error) {
+      setUploadMessage(error.message || "Could not save client.");
+    } finally {
+      setIsSavingClient(false);
+    }
+  };
+
+  const handleCreateJob = async (event) => {
+    event.preventDefault();
+
+    if (!jobForm.title.trim()) {
+      setUploadMessage("Job title is required.");
+      return;
+    }
+
+    if (!jobForm.client_id) {
+      setUploadMessage("Please select a client for the job.");
+      return;
+    }
+
+    try {
+      setIsSavingJob(true);
+      setUploadMessage("");
+
+      const response = await fetch(`${apiUrl}/jobs`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          title: jobForm.title,
+          client_id: jobForm.client_id,
+          location: jobForm.location,
+          min_experience: jobForm.min_experience,
+          max_experience: jobForm.max_experience,
+          skills: jobForm.skills
+            .split(",")
+            .map((skill) => skill.trim())
+            .filter(Boolean),
+          description: jobForm.description
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Could not save job.");
+      }
+
+      if (selectedClientId === jobForm.client_id) {
+        await fetchJobsByClient(jobForm.client_id);
+        setSelectedJobId(data._id);
+      }
+
+      setJobForm({
+        title: "",
+        client_id: jobForm.client_id,
+        location: "",
+        min_experience: "",
+        max_experience: "",
+        skills: "",
+        description: ""
+      });
+      setUploadMessage("Job saved successfully.");
+    } catch (error) {
+      setUploadMessage(error.message || "Could not save job.");
+    } finally {
+      setIsSavingJob(false);
+    }
+  };
+
   const handleFilterChange = (event) => {
     const nextFilters = {
       ...filters,
@@ -448,6 +596,118 @@ export default function App() {
         <section className="card upload-card">
           <h1>Candidate Dashboard</h1>
           <p className="status">{message}</p>
+
+          <form className="upload-form" onSubmit={handleCreateClient}>
+            <label htmlFor="client-name">Client Name</label>
+            <input
+              id="client-name"
+              name="name"
+              type="text"
+              value={clientForm.name}
+              onChange={handleClientFormChange}
+            />
+            <label htmlFor="client-industry">Industry</label>
+            <input
+              id="client-industry"
+              name="industry"
+              type="text"
+              value={clientForm.industry}
+              onChange={handleClientFormChange}
+            />
+            <label htmlFor="client-contact-person">Contact Person</label>
+            <input
+              id="client-contact-person"
+              name="contact_person"
+              type="text"
+              value={clientForm.contact_person}
+              onChange={handleClientFormChange}
+            />
+            <label htmlFor="client-email">Email</label>
+            <input
+              id="client-email"
+              name="email"
+              type="email"
+              value={clientForm.email}
+              onChange={handleClientFormChange}
+            />
+            <button type="submit" disabled={isSavingClient}>
+              {isSavingClient ? "Saving..." : "Save Client"}
+            </button>
+          </form>
+
+          <form className="upload-form" onSubmit={handleCreateJob}>
+            <label htmlFor="job-title">Job Title</label>
+            <input
+              id="job-title"
+              name="title"
+              type="text"
+              value={jobForm.title}
+              onChange={handleJobFormChange}
+            />
+            <label htmlFor="job-client">Select Client</label>
+            <select
+              id="job-client"
+              className="filter-select"
+              name="client_id"
+              value={jobForm.client_id}
+              onChange={handleJobFormChange}
+            >
+              <option value="">Choose client</option>
+              {clients.map((client) => (
+                <option key={client._id} value={client._id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="job-location">Location</label>
+            <input
+              id="job-location"
+              name="location"
+              type="text"
+              value={jobForm.location}
+              onChange={handleJobFormChange}
+            />
+            <label htmlFor="job-min-experience">Min Experience</label>
+            <input
+              id="job-min-experience"
+              name="min_experience"
+              type="number"
+              min="0"
+              step="0.5"
+              value={jobForm.min_experience}
+              onChange={handleJobFormChange}
+            />
+            <label htmlFor="job-max-experience">Max Experience</label>
+            <input
+              id="job-max-experience"
+              name="max_experience"
+              type="number"
+              min="0"
+              step="0.5"
+              value={jobForm.max_experience}
+              onChange={handleJobFormChange}
+            />
+            <label htmlFor="job-skills">Skills</label>
+            <input
+              id="job-skills"
+              name="skills"
+              type="text"
+              placeholder="React, Node.js"
+              value={jobForm.skills}
+              onChange={handleJobFormChange}
+            />
+            <label htmlFor="job-description">Description</label>
+            <input
+              id="job-description"
+              name="description"
+              type="text"
+              value={jobForm.description}
+              onChange={handleJobFormChange}
+            />
+            <button type="submit" disabled={isSavingJob}>
+              {isSavingJob ? "Saving..." : "Save Job"}
+            </button>
+          </form>
 
           <form className="upload-form" onSubmit={handleSubmit}>
             <label htmlFor="uploadedBy">Your name or email</label>
