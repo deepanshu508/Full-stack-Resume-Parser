@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { Navigate, NavLink, Route, Routes } from "react-router-dom";
+import DashboardPage from "./pages/DashboardPage";
+import ManagePage from "./pages/ManagePage";
+import UploadPage from "./pages/UploadPage";
 
 const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const statusOptions = [
@@ -216,7 +220,7 @@ export default function App() {
           nextCandidates.some((candidate) => candidate._id === id)
         )
       );
-    } catch (error) {
+    } catch (_error) {
       setCandidates([]);
       setSelectedCandidateIds([]);
     } finally {
@@ -230,7 +234,7 @@ export default function App() {
         const response = await fetch(`${apiUrl}/health`);
         const text = await response.text();
         setMessage(text);
-      } catch (error) {
+      } catch (_error) {
         setMessage("Unable to reach server");
       }
     };
@@ -593,429 +597,84 @@ export default function App() {
   return (
     <main className="app">
       <div className="layout">
-        <section className="card upload-card">
-          <h1>Candidate Dashboard</h1>
-          <p className="status">{message}</p>
+        <nav>
+          <NavLink to="/dashboard">Dashboard</NavLink>{" "}
+          <NavLink to="/manage">Clients & Jobs</NavLink>{" "}
+          <NavLink to="/upload">Upload Candidate</NavLink>
+        </nav>
 
-          <form className="upload-form" onSubmit={handleCreateClient}>
-            <label htmlFor="client-name">Client Name</label>
-            <input
-              id="client-name"
-              name="name"
-              type="text"
-              value={clientForm.name}
-              onChange={handleClientFormChange}
-            />
-            <label htmlFor="client-industry">Industry</label>
-            <input
-              id="client-industry"
-              name="industry"
-              type="text"
-              value={clientForm.industry}
-              onChange={handleClientFormChange}
-            />
-            <label htmlFor="client-contact-person">Contact Person</label>
-            <input
-              id="client-contact-person"
-              name="contact_person"
-              type="text"
-              value={clientForm.contact_person}
-              onChange={handleClientFormChange}
-            />
-            <label htmlFor="client-email">Email</label>
-            <input
-              id="client-email"
-              name="email"
-              type="email"
-              value={clientForm.email}
-              onChange={handleClientFormChange}
-            />
-            <button type="submit" disabled={isSavingClient}>
-              {isSavingClient ? "Saving..." : "Save Client"}
-            </button>
-          </form>
+        {uploadMessage ? <p className="upload-message">{uploadMessage}</p> : null}
 
-          <form className="upload-form" onSubmit={handleCreateJob}>
-            <label htmlFor="job-title">Job Title</label>
-            <input
-              id="job-title"
-              name="title"
-              type="text"
-              value={jobForm.title}
-              onChange={handleJobFormChange}
-            />
-            <label htmlFor="job-client">Select Client</label>
-            <select
-              id="job-client"
-              className="filter-select"
-              name="client_id"
-              value={jobForm.client_id}
-              onChange={handleJobFormChange}
-            >
-              <option value="">Choose client</option>
-              {clients.map((client) => (
-                <option key={client._id} value={client._id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="job-location">Location</label>
-            <input
-              id="job-location"
-              name="location"
-              type="text"
-              value={jobForm.location}
-              onChange={handleJobFormChange}
-            />
-            <label htmlFor="job-min-experience">Min Experience</label>
-            <input
-              id="job-min-experience"
-              name="min_experience"
-              type="number"
-              min="0"
-              step="0.5"
-              value={jobForm.min_experience}
-              onChange={handleJobFormChange}
-            />
-            <label htmlFor="job-max-experience">Max Experience</label>
-            <input
-              id="job-max-experience"
-              name="max_experience"
-              type="number"
-              min="0"
-              step="0.5"
-              value={jobForm.max_experience}
-              onChange={handleJobFormChange}
-            />
-            <label htmlFor="job-skills">Skills</label>
-            <input
-              id="job-skills"
-              name="skills"
-              type="text"
-              placeholder="React, Node.js"
-              value={jobForm.skills}
-              onChange={handleJobFormChange}
-            />
-            <label htmlFor="job-description">Description</label>
-            <input
-              id="job-description"
-              name="description"
-              type="text"
-              value={jobForm.description}
-              onChange={handleJobFormChange}
-            />
-            <button type="submit" disabled={isSavingJob}>
-              {isSavingJob ? "Saving..." : "Save Job"}
-            </button>
-          </form>
-
-          <form className="upload-form" onSubmit={handleSubmit}>
-            <label htmlFor="uploadedBy">Your name or email</label>
-            <input
-              id="uploadedBy"
-              type="text"
-              placeholder="recruiter@example.com"
-              value={uploadedBy}
-              onChange={(event) => {
-                setUploadedBy(event.target.value);
-                setUploadMessage("");
-              }}
-            />
-            <label htmlFor="client">Select client</label>
-            <select
-              id="client"
-              className="filter-select"
-              value={selectedClientId}
-              onChange={(event) => {
-                const clientId = event.target.value;
-                setSelectedClientId(clientId);
-                setSelectedJobId("");
-                setUploadMessage("");
-                fetchJobsByClient(clientId);
-              }}
-            >
-              <option value="">Choose client</option>
-              {clients.map((client) => (
-                <option key={client._id} value={client._id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="job">Select job</label>
-            <select
-              id="job"
-              className="filter-select"
-              value={selectedJobId}
-              onChange={(event) => {
-                setSelectedJobId(event.target.value);
-                setUploadMessage("");
-              }}
-              disabled={!selectedClientId}
-            >
-              <option value="">Choose job</option>
-              {jobs.map((job) => (
-                <option key={job._id} value={job._id}>
-                  {job.title}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="resume">Upload resume</label>
-            <input
-              id="resume"
-              type="file"
-              accept=".pdf,.doc,.docx"
-              onChange={(event) => {
-                setFile(event.target.files?.[0] || null);
-                setUploadMessage("");
-              }}
-            />
-            <button type="submit" disabled={isUploading}>
-              {isUploading ? "Uploading..." : "Upload"}
-            </button>
-          </form>
-
-          {uploadMessage ? <p className="upload-message">{uploadMessage}</p> : null}
-
-          {parsedResume ? (
-            <section className="result">
-              <h2>Latest Parsed Resume</h2>
-              <p><strong>Name:</strong> {parsedResume.name || "-"}</p>
-              <p><strong>Phone:</strong> {parsedResume.phone || "-"}</p>
-              <p><strong>Location:</strong> {parsedResume.location || "-"}</p>
-              <p><strong>Uploaded By:</strong> {parsedResume.uploadedBy || "-"}</p>
-              <p><strong>Status:</strong> {parsedResume.status || "New"}</p>
-              <p><strong>Remarks:</strong> {parsedResume.remarks || "-"}</p>
-              <p><strong>Experience:</strong> {parsedResume.experience || "-"}</p>
-              <p><strong>Skills:</strong> {parsedResume.skills?.length ? parsedResume.skills.join(", ") : "-"}</p>
-            </section>
-          ) : null}
-        </section>
-
-        <section className="card dashboard-card">
-          <div className="dashboard-header">
-            <h2>Candidates</h2>
-            <p>{isLoadingCandidates ? "Loading candidates..." : `${candidates.length} result(s)`}</p>
-          </div>
-
-          <div className="filters">
-            <input
-              name="location"
-              type="text"
-              placeholder="Search by location"
-              value={filters.location}
-              onChange={handleFilterChange}
-            />
-            <input
-              name="skills"
-              type="text"
-              placeholder="Search by skill"
-              value={filters.skills}
-              onChange={handleFilterChange}
-            />
-            <input
-              name="minExperience"
-              type="number"
-              min="0"
-              step="0.5"
-              placeholder="Min years"
-              value={filters.minExperience}
-              onChange={handleFilterChange}
-            />
-            <input
-              name="maxExperience"
-              type="number"
-              min="0"
-              step="0.5"
-              placeholder="Max years"
-              value={filters.maxExperience}
-              onChange={handleFilterChange}
-            />
-            <select
-              className="filter-select"
-              name="status"
-              value={filters.status}
-              onChange={handleFilterChange}
-            >
-              <option value="">All statuses</option>
-              {statusOptions.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-            <input
-              name="uploadedBy"
-              type="text"
-              placeholder="Uploaded by"
-              value={filters.uploadedBy}
-              onChange={handleFilterChange}
-            />
-            <select
-              className="filter-select"
-              name="contactAge"
-              value={filters.contactAge}
-              onChange={handleFilterChange}
-            >
-              {contactAgeOptions.map((option) => (
-                <option key={option.label} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className="filter-select"
-              value={selectedWhatsAppTemplate}
-              onChange={(event) => setSelectedWhatsAppTemplate(event.target.value)}
-            >
-              {whatsAppTemplateOptions.map((template) => (
-                <option key={template.value} value={template.value}>
-                  {template.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="bulk-actions">
-            <label className="checkbox-label">
-              <input
-                type="checkbox"
-                checked={areAllSelectableCandidatesSelected}
-                onChange={handleSelectAllCandidates}
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route
+            path="/dashboard"
+            element={
+              <DashboardPage
+                candidates={candidates}
+                filters={filters}
+                handleFilterChange={handleFilterChange}
+                isLoadingCandidates={isLoadingCandidates}
+                selectedWhatsAppTemplate={selectedWhatsAppTemplate}
+                setSelectedWhatsAppTemplate={setSelectedWhatsAppTemplate}
+                whatsAppTemplateOptions={whatsAppTemplateOptions}
+                contactAgeOptions={contactAgeOptions}
+                statusOptions={statusOptions}
+                selectedCandidateIds={selectedCandidateIds}
+                areAllSelectableCandidatesSelected={areAllSelectableCandidatesSelected}
+                handleSelectAllCandidates={handleSelectAllCandidates}
+                handleBulkWhatsApp={handleBulkWhatsApp}
+                getWhatsAppLink={getWhatsAppLink}
+                formatLastContacted={formatLastContacted}
+                isContactStale={isContactStale}
+                handleCandidateSelect={handleCandidateSelect}
+                handleCandidateFieldChange={handleCandidateFieldChange}
+                updatingCandidateId={updatingCandidateId}
+                handleCandidateUpdate={handleCandidateUpdate}
+                handleSingleWhatsApp={handleSingleWhatsApp}
               />
-              <span>Select All</span>
-            </label>
-
-            <button
-              className="bulk-button"
-              type="button"
-              onClick={handleBulkWhatsApp}
-              disabled={!selectedCandidateIds.length}
-            >
-              Send WhatsApp
-            </button>
-          </div>
-
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Select</th>
-                  <th>Name</th>
-                  <th>Phone</th>
-                  <th>Location</th>
-                  <th>Uploaded By</th>
-                  <th>Last Contacted</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                  <th>Skills</th>
-                  <th>Experience</th>
-                  <th>Action</th>
-                  <th>WhatsApp</th>
-                </tr>
-              </thead>
-              <tbody>
-                {candidates.length ? (
-                  candidates.map((candidate) => {
-                    const whatsAppLink = getWhatsAppLink(
-                      candidate,
-                      selectedWhatsAppTemplate
-                    );
-                    const staleContact = isContactStale(candidate.lastContacted);
-
-                    return (
-                      <tr
-                        key={candidate._id || candidate.phone || `${candidate.name}-${candidate.createdAt}`}
-                        className={staleContact ? "stale-row" : ""}
-                      >
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selectedCandidateIds.includes(candidate._id)}
-                            disabled={!whatsAppLink}
-                            onChange={() => handleCandidateSelect(candidate._id)}
-                          />
-                        </td>
-                        <td>{candidate.name || "-"}</td>
-                        <td>{candidate.phone || "-"}</td>
-                        <td>{candidate.location || "-"}</td>
-                        <td>{candidate.uploadedBy || "-"}</td>
-                        <td>{formatLastContacted(candidate.lastContacted)}</td>
-                        <td>
-                          <select
-                            className="table-control"
-                            value={candidate.status || "New"}
-                            onChange={(event) =>
-                              handleCandidateFieldChange(
-                                candidate._id,
-                                "status",
-                                event.target.value
-                              )
-                            }
-                          >
-                            {statusOptions.map((status) => (
-                              <option key={status} value={status}>
-                                {status}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td>
-                          <input
-                            className="table-control"
-                            type="text"
-                            placeholder="Add remarks"
-                            value={candidate.remarks || ""}
-                            onChange={(event) =>
-                              handleCandidateFieldChange(
-                                candidate._id,
-                                "remarks",
-                                event.target.value
-                              )
-                            }
-                          />
-                        </td>
-                        <td>{candidate.skills?.length ? candidate.skills.join(", ") : "-"}</td>
-                        <td>{candidate.experience || "-"}</td>
-                        <td>
-                          <button
-                            className="table-button"
-                            type="button"
-                            disabled={updatingCandidateId === candidate._id}
-                            onClick={() => handleCandidateUpdate(candidate)}
-                          >
-                            {updatingCandidateId === candidate._id ? "Updating..." : "Update"}
-                          </button>
-                        </td>
-                        <td>
-                          {whatsAppLink ? (
-                            <a
-                              className="table-link"
-                              href={whatsAppLink}
-                              onClick={async (event) => {
-                                event.preventDefault();
-                                await handleSingleWhatsApp(candidate, whatsAppLink);
-                              }}
-                            >
-                              WhatsApp
-                            </a>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan="12" className="empty-state">
-                      {isLoadingCandidates ? "Loading..." : "No candidates found."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
+            }
+          />
+          <Route
+            path="/manage"
+            element={
+              <ManagePage
+                clientForm={clientForm}
+                handleClientFormChange={handleClientFormChange}
+                handleCreateClient={handleCreateClient}
+                isSavingClient={isSavingClient}
+                jobForm={jobForm}
+                handleJobFormChange={handleJobFormChange}
+                handleCreateJob={handleCreateJob}
+                isSavingJob={isSavingJob}
+                clients={clients}
+              />
+            }
+          />
+          <Route
+            path="/upload"
+            element={
+              <UploadPage
+                message={message}
+                uploadedBy={uploadedBy}
+                setUploadedBy={setUploadedBy}
+                clients={clients}
+                selectedClientId={selectedClientId}
+                setSelectedClientId={setSelectedClientId}
+                jobs={jobs}
+                selectedJobId={selectedJobId}
+                setSelectedJobId={setSelectedJobId}
+                fetchJobsByClient={fetchJobsByClient}
+                file={file}
+                setFile={setFile}
+                handleSubmit={handleSubmit}
+                isUploading={isUploading}
+                uploadMessage=""
+                parsedResume={parsedResume}
+              />
+            }
+          />
+        </Routes>
       </div>
     </main>
   );
