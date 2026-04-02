@@ -239,7 +239,9 @@ export default function DashboardPage({
             ) : (
               <tr>
                 <td colSpan="12" className="empty-state">
-                  {isLoadingCandidates ? "Loading..." : "No candidates found."}
+                  {isLoadingCandidates
+                    ? "Loading..."
+                    : "No candidates found. Start by adding a client and job, then upload resumes."}
                 </td>
               </tr>
             )}

@@ -597,6 +597,14 @@ export default function App() {
   return (
     <main className="app">
       <div className="layout">
+        <p>
+          Step 1: Create a Client and Job in Manage section
+          <br />
+          Step 2: Upload candidates in Upload section
+          <br />
+          Step 3: View candidates in Dashboard
+        </p>
+
         <nav>
           <NavLink to="/dashboard">Dashboard</NavLink>{" "}
           <NavLink to="/manage">Clients & Jobs</NavLink>{" "}

@@ -16,10 +16,16 @@ export default function UploadPage({
   uploadMessage,
   parsedResume
 }) {
+  const hasClients = clients.length > 0;
+
   return (
     <section className="card upload-card">
       <h1>Upload Candidate</h1>
       <p className="status">{message}</p>
+
+      {!hasClients ? (
+        <p>No clients found. Please create a client first.</p>
+      ) : null}
 
       <form className="upload-form" onSubmit={handleSubmit}>
         <label htmlFor="uploadedBy">Your name or email</label>
