@@ -5,7 +5,7 @@ import JobDetailPage from "./pages/JobDetailPage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import ProjectsPage from "./pages/ProjectsPage";
 
-const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5001";
 const statusOptions = [
   "New",
   "Contacted",

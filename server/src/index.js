@@ -1,12 +1,12 @@
 import cors from "cors";
+import { v2 as cloudinary } from "cloudinary";
 import dotenv from "dotenv";
 import express from "express";
 import mongoose from "mongoose";
 import multer from "multer";
-import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
 import mammoth from "mammoth";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 import OpenAI from "openai";
 import pdfParse from "pdf-parse";
 import Candidate from "./models/Candidate.js";
@@ -20,14 +20,11 @@ const app = express();
 app.get("/", (req, res) => {
   res.send("Resume Parser API is running 🚀");
 });
-const port = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 const mongoUri = process.env.MONGODB_URI;
 console.log("Mongo URI:", mongoUri);
 const openAiApiKey = process.env.OPENAI_API_KEY;
 const openAiModel = process.env.OPENAI_MODEL || "gpt-5.2";
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, "..", "uploads");
 const allowedMimeTypes = new Set([
   "application/pdf",
   "application/msword",
@@ -59,20 +56,23 @@ const resumeSchema = {
   required: ["name", "phone", "location", "skills", "experience"]
 };
 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
 app.use(cors());
 app.use(express.json());
-app.use("/uploads", express.static(uploadsDir));
-
-fs.mkdirSync(uploadsDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (_req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${uniqueSuffix}${path.extname(file.originalname)}`);
-  }
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async (_req, file) => ({
+    folder: "resumes",
+    resource_type: "raw",
+    public_id: `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.parse(
+      file.originalname
+    ).name ? `-${path.parse(file.originalname).name}` : ""}`
+  })
 });
 
 const upload = multer({
@@ -111,7 +111,13 @@ const getExperienceYears = (experience) => {
 
 const extractResumeText = async (file) => {
   const extension = path.extname(file.originalname).toLowerCase();
-  const fileBuffer = await fs.promises.readFile(file.path);
+  const response = await fetch(file.path);
+
+  if (!response.ok) {
+    throw new Error("Could not download uploaded resume from Cloudinary.");
+  }
+
+  const fileBuffer = Buffer.from(await response.arrayBuffer());
 
   if (extension === ".pdf") {
     const pdfData = await pdfParse(fileBuffer);
@@ -631,13 +637,15 @@ app.post("/upload", upload.single("resume"), async (req, res, next) => {
       throw new Error("Selected job was not found.");
     }
 
-    const resumeUrl = `/uploads/${req.file.filename}`;
+    const file = req.file;
+    console.log("FILE PATH 👉", file.path);
+    const resumeUrl = file.path;
     const parsedData = await parseResumeWithOpenAI(extractedText);
     const saveResult = await saveCandidate(parsedData, uploadedBy, jobId, resumeUrl);
 
     res.json({
       success: true,
-      fileName: req.file.filename,
+      fileName: file.filename || file.originalname,
       message: saveResult.status,
       ...saveResult.candidate
     });
@@ -672,10 +680,8 @@ const startServer = async () => {
     await mongoose.connect(mongoUri);
     console.log("MongoDB connected");
 
-    const port = process.env.PORT || 5000;
-
-    app.listen(port, () => {
-      console.log(`Server listening on http://localhost:${port}`);
+    app.listen(PORT, () => {
+      console.log(`Server listening on http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error.message);
