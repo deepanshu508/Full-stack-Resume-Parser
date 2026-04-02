@@ -28,11 +28,6 @@ const whatsAppTemplateOptions = [
   { value: "followUp", label: "Follow-up" },
   { value: "jobOffer", label: "Job Offer" }
 ];
-const contactAgeOptions = [
-  { value: "", label: "Any contact status" },
-  { value: "2", label: "Not contacted in 2+ days" },
-  { value: "7", label: "Not contacted in 7+ days" }
-];
 const defaultCountryCode = "91";
 
 const formatWhatsAppPhone = (phone) => {
@@ -95,13 +90,12 @@ export default function App() {
   const [appMessage, setAppMessage] = useState("");
   const [candidates, setCandidates] = useState([]);
   const [filters, setFilters] = useState({
-    location: "",
+    project_id: "",
+    job_id: "",
     skills: "",
     minExperience: "",
     maxExperience: "",
-    status: "",
-    uploadedBy: "",
-    contactAge: ""
+    status: ""
   });
   const [isLoadingCandidates, setIsLoadingCandidates] = useState(true);
   const [updatingCandidateId, setUpdatingCandidateId] = useState("");
@@ -109,14 +103,55 @@ export default function App() {
     "interviewInvite"
   );
   const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [jobs, setJobs] = useState([]);
+
+  const fetchProjects = async () => {
+    try {
+      const response = await fetch(`${apiUrl}/projects`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error("Could not load projects.");
+      }
+
+      setProjects(Array.isArray(data) ? data : []);
+    } catch (_error) {
+      setProjects([]);
+    }
+  };
+
+  const fetchJobsByProject = async (projectId) => {
+    if (!projectId) {
+      setJobs([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/projects/${projectId}/jobs`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error("Could not load jobs.");
+      }
+
+      setJobs(Array.isArray(data) ? data : []);
+    } catch (_error) {
+      setJobs([]);
+    }
+  };
 
   const fetchCandidates = async (nextFilters = filters) => {
     try {
       setIsLoadingCandidates(true);
       const params = new URLSearchParams();
 
-      if (nextFilters.location.trim()) {
-        params.set("location", nextFilters.location.trim());
+      if (nextFilters.project_id) {
+        params.set("project_id", nextFilters.project_id);
+      }
+
+      if (nextFilters.job_id) {
+        params.set("job_id", nextFilters.job_id);
       }
 
       if (nextFilters.skills.trim()) {
@@ -133,14 +168,6 @@ export default function App() {
 
       if (nextFilters.status) {
         params.set("status", nextFilters.status);
-      }
-
-      if (nextFilters.uploadedBy.trim()) {
-        params.set("uploadedBy", nextFilters.uploadedBy.trim());
-      }
-
-      if (nextFilters.contactAge) {
-        params.set("contactAge", nextFilters.contactAge);
       }
 
       const query = params.toString();
@@ -181,13 +208,20 @@ export default function App() {
 
     fetchHealth();
     fetchCandidates();
+    fetchProjects();
   }, []);
 
   const handleFilterChange = (event) => {
+    const { name, value } = event.target;
     const nextFilters = {
       ...filters,
-      [event.target.name]: event.target.value
+      [name]: value
     };
+
+    if (name === "project_id") {
+      nextFilters.job_id = "";
+      fetchJobsByProject(value);
+    }
 
     setFilters(nextFilters);
     fetchCandidates(nextFilters);
@@ -224,7 +258,7 @@ export default function App() {
 
       setCandidates((currentCandidates) =>
         currentCandidates.map((item) =>
-          item._id === candidate._id ? data.candidate : item
+          item._id === candidate._id ? { ...item, ...data.candidate } : item
         )
       );
       setAppMessage("Candidate updated.");
@@ -258,7 +292,7 @@ export default function App() {
 
     setCandidates((currentCandidates) =>
       currentCandidates.map((item) =>
-        item._id === candidate._id ? data.candidate : item
+        item._id === candidate._id ? { ...item, ...data.candidate } : item
       )
     );
   };
@@ -360,10 +394,11 @@ export default function App() {
                 filters={filters}
                 handleFilterChange={handleFilterChange}
                 isLoadingCandidates={isLoadingCandidates}
+                projects={projects}
+                jobs={jobs}
                 selectedWhatsAppTemplate={selectedWhatsAppTemplate}
                 setSelectedWhatsAppTemplate={setSelectedWhatsAppTemplate}
                 whatsAppTemplateOptions={whatsAppTemplateOptions}
-                contactAgeOptions={contactAgeOptions}
                 statusOptions={statusOptions}
                 selectedCandidateIds={selectedCandidateIds}
                 areAllSelectableCandidatesSelected={areAllSelectableCandidatesSelected}

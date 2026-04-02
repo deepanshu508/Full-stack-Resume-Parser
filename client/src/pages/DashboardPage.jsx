@@ -3,10 +3,11 @@ export default function DashboardPage({
   filters,
   handleFilterChange,
   isLoadingCandidates,
+  projects,
+  jobs,
   selectedWhatsAppTemplate,
   setSelectedWhatsAppTemplate,
   whatsAppTemplateOptions,
-  contactAgeOptions,
   statusOptions,
   selectedCandidateIds,
   areAllSelectableCandidatesSelected,
@@ -30,13 +31,46 @@ export default function DashboardPage({
         </div>
 
         <div className="filters">
-          <input
-            name="location"
-            type="text"
-            placeholder="Search by location"
-            value={filters.location}
+          <select
+            className="filter-select"
+            name="project_id"
+            value={filters.project_id}
             onChange={handleFilterChange}
-          />
+          >
+            <option value="">All projects</option>
+            {projects.map((project) => (
+              <option key={project._id} value={project._id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="filter-select"
+            name="job_id"
+            value={filters.job_id}
+            onChange={handleFilterChange}
+            disabled={!filters.project_id}
+          >
+            <option value="">All jobs</option>
+            {jobs.map((job) => (
+              <option key={job._id} value={job._id}>
+                {job.title}
+              </option>
+            ))}
+          </select>
+          <select
+            className="filter-select"
+            name="status"
+            value={filters.status}
+            onChange={handleFilterChange}
+          >
+            <option value="">All statuses</option>
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
           <input
             name="skills"
             type="text"
@@ -62,38 +96,6 @@ export default function DashboardPage({
             value={filters.maxExperience}
             onChange={handleFilterChange}
           />
-          <select
-            className="filter-select"
-            name="status"
-            value={filters.status}
-            onChange={handleFilterChange}
-          >
-            <option value="">All statuses</option>
-            {statusOptions.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-          <input
-            name="uploadedBy"
-            type="text"
-            placeholder="Uploaded by"
-            value={filters.uploadedBy}
-            onChange={handleFilterChange}
-          />
-          <select
-            className="filter-select"
-            name="contactAge"
-            value={filters.contactAge}
-            onChange={handleFilterChange}
-          >
-            {contactAgeOptions.map((option) => (
-              <option key={option.label} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
           <select
             className="filter-select"
             value={selectedWhatsAppTemplate}
@@ -134,8 +136,9 @@ export default function DashboardPage({
                 <th>Select</th>
                 <th>Name</th>
                 <th>Phone</th>
+                <th>Project Name</th>
+                <th>Job Title</th>
                 <th>Location</th>
-                <th>Uploaded By</th>
                 <th>Last Contacted</th>
                 <th>Status</th>
                 <th>Remarks</th>
@@ -169,8 +172,9 @@ export default function DashboardPage({
                       </td>
                       <td>{candidate.name || "-"}</td>
                       <td>{candidate.phone || "-"}</td>
+                      <td>{candidate.projectName || "-"}</td>
+                      <td>{candidate.jobTitle || "-"}</td>
                       <td>{candidate.location || "-"}</td>
-                      <td>{candidate.uploadedBy || "-"}</td>
                       <td>{formatLastContacted(candidate.lastContacted)}</td>
                       <td>
                         <select
@@ -239,7 +243,7 @@ export default function DashboardPage({
                 })
               ) : (
                 <tr>
-                  <td colSpan="12" className="empty-state">
+                  <td colSpan="13" className="empty-state">
                     {isLoadingCandidates
                       ? "Loading..."
                       : "No candidates found. Start by creating a project and job, then upload resumes."}

@@ -496,45 +496,44 @@ app.get("/clients/:clientId/jobs", async (req, res, next) => {
 app.get("/candidates", async (req, res, next) => {
   try {
     const {
-      location = "",
       skills = "",
       minExperience = "",
       maxExperience = "",
       status = "",
-      uploadedBy = "",
-      contactAge = "",
-      projectId = "",
-      jobId = ""
+      project_id = "",
+      job_id = ""
     } = req.query;
-    const query = {};
-
-    if (location) {
-      query.location = { $regex: location, $options: "i" };
-    }
+    const candidateQuery = {};
 
     if (status && allowedStatuses.includes(status)) {
-      query.status = status;
+      candidateQuery.status = status;
     }
 
-    if (uploadedBy) {
-      query.uploadedBy = { $regex: uploadedBy, $options: "i" };
-    }
-
-    if (jobId) {
-      query.job_id = jobId;
+    if (job_id) {
+      candidateQuery.job_id = job_id;
+    } else if (project_id) {
+      const projectJobs = await Job.find({ project_id }).select("_id").lean();
+      candidateQuery.job_id = { $in: projectJobs.map((job) => job._id) };
     }
 
     if (skills) {
-      query.skills = { $elemMatch: { $regex: skills, $options: "i" } };
+      candidateQuery.skills = { $elemMatch: { $regex: skills, $options: "i" } };
     }
 
-    let candidates = await Candidate.find(query)
+    let candidates = await Candidate.find(candidateQuery)
+      .populate({
+        path: "job_id",
+        select: "title project_id",
+        populate: {
+          path: "project_id",
+          select: "name"
+        }
+      })
       .sort({ createdAt: -1 })
       .lean();
 
     const minimumYears = Number(minExperience);
     const maximumYears = Number(maxExperience);
-    const contactAgeDays = Number(contactAge);
 
     if (!Number.isNaN(minimumYears) && minExperience !== "") {
       candidates = candidates.filter(
@@ -548,25 +547,13 @@ app.get("/candidates", async (req, res, next) => {
       );
     }
 
-    if (!Number.isNaN(contactAgeDays) && contactAge !== "") {
-      const thresholdMs = contactAgeDays * 24 * 60 * 60 * 1000;
-
-      candidates = candidates.filter((candidate) => {
-        if (!candidate.lastContacted) {
-          return true;
-        }
-
-        const lastContacted = new Date(candidate.lastContacted);
-
-        if (Number.isNaN(lastContacted.getTime())) {
-          return true;
-        }
-
-        return Date.now() - lastContacted.getTime() >= thresholdMs;
-      });
-    }
-
-    res.json(candidates);
+    res.json(
+      candidates.map((candidate) => ({
+        ...candidate,
+        projectName: candidate.job_id?.project_id?.name || "",
+        jobTitle: candidate.job_id?.title || ""
+      }))
+    );
   } catch (error) {
     next(error);
   }
