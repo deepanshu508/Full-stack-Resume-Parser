@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Route, Routes } from "react-router-dom";
 import DashboardPage from "./pages/DashboardPage";
+import JobDetailPage from "./pages/JobDetailPage";
 import ProjectDetailPage from "./pages/ProjectDetailPage";
 import ProjectsPage from "./pages/ProjectsPage";
 
@@ -337,7 +338,7 @@ export default function App() {
         <p>
           Step 1: Create a hiring project in Projects section
           <br />
-          Step 2: Open the project and upload candidates
+          Step 2: Add a job inside the project and upload candidates
           <br />
           Step 3: View all candidates in Dashboard
         </p>
@@ -387,6 +388,15 @@ export default function App() {
             path="/projects/:projectId"
             element={
               <ProjectDetailPage
+                apiUrl={apiUrl}
+                serverMessage={message}
+              />
+            }
+          />
+          <Route
+            path="/projects/:projectId/jobs/:jobId"
+            element={
+              <JobDetailPage
                 apiUrl={apiUrl}
                 serverMessage={message}
                 statusOptions={statusOptions}

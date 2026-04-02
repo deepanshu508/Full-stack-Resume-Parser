@@ -182,13 +182,13 @@ const parseResumeWithOpenAI = async (resumeText) => {
   return JSON.parse(outputText);
 };
 
-const saveCandidate = async (parsedData, uploadedBy, projectId) => {
+const saveCandidate = async (parsedData, uploadedBy, jobId) => {
   const candidateData = {
     name: parsedData.name?.trim() || "",
     phone: normalizePhone(parsedData.phone),
     location: parsedData.location?.trim() || "",
     uploadedBy: uploadedBy?.trim() || "",
-    project_id: projectId,
+    job_id: jobId,
     status: "New",
     remarks: "",
     skills: Array.isArray(parsedData.skills)
@@ -205,8 +205,8 @@ const saveCandidate = async (parsedData, uploadedBy, projectId) => {
     throw new Error("Uploader name or email is required.");
   }
 
-  if (!candidateData.project_id) {
-    throw new Error("Project is required.");
+  if (!candidateData.job_id) {
+    throw new Error("Job is required.");
   }
 
   const existingCandidate = await Candidate.findOne({ phone: candidateData.phone }).lean();
@@ -227,7 +227,7 @@ const saveCandidate = async (parsedData, uploadedBy, projectId) => {
       phone: savedCandidate.phone || "",
       location: savedCandidate.location,
       uploadedBy: savedCandidate.uploadedBy,
-      project_id: savedCandidate.project_id,
+      job_id: savedCandidate.job_id,
       status: savedCandidate.status,
       remarks: savedCandidate.remarks,
       lastContacted: savedCandidate.lastContacted,
@@ -261,9 +261,27 @@ app.get("/projects", async (_req, res, next) => {
     const projects = await Project.aggregate([
       {
         $lookup: {
-          from: "candidates",
+          from: "jobs",
           localField: "_id",
           foreignField: "project_id",
+          as: "jobs"
+        }
+      },
+      {
+        $lookup: {
+          from: "candidates",
+          let: {
+            jobIds: "$jobs._id"
+          },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $in: ["$job_id", "$$jobIds"]
+                }
+              }
+            }
+          ],
           as: "candidates"
         }
       },
@@ -310,7 +328,111 @@ app.get("/projects/:projectId", async (req, res, next) => {
 
 app.get("/projects/:projectId/candidates", async (req, res, next) => {
   try {
-    const candidates = await Candidate.find({ project_id: req.params.projectId })
+    const jobs = await Job.find({ project_id: req.params.projectId }).select("_id").lean();
+    const jobIds = jobs.map((job) => job._id);
+    const candidates = await Candidate.find({ job_id: { $in: jobIds } }).sort({
+      createdAt: -1
+    }).lean();
+
+    res.json(candidates);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/projects/:projectId/jobs", async (req, res, next) => {
+  try {
+    const project = await Project.findById(req.params.projectId).lean();
+
+    if (!project) {
+      res.status(404).json({
+        success: false,
+        message: "Project not found."
+      });
+      return;
+    }
+
+    const job = await Job.create({
+      project_id: req.params.projectId,
+      title: req.body.title?.trim(),
+      location: req.body.location?.trim() || "",
+      min_experience: Number(req.body.min_experience) || 0,
+      max_experience: Number(req.body.max_experience) || 0,
+      skills: Array.isArray(req.body.skills)
+        ? req.body.skills.map((skill) => skill.trim()).filter(Boolean)
+        : []
+    });
+
+    res.status(201).json(job);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/projects/:projectId/jobs", async (req, res, next) => {
+  try {
+    const jobs = await Job.aggregate([
+      {
+        $match: {
+          project_id: new mongoose.Types.ObjectId(req.params.projectId)
+        }
+      },
+      {
+        $lookup: {
+          from: "candidates",
+          localField: "_id",
+          foreignField: "job_id",
+          as: "candidates"
+        }
+      },
+      {
+        $project: {
+          title: 1,
+          location: 1,
+          min_experience: 1,
+          max_experience: 1,
+          skills: 1,
+          created_at: 1,
+          candidatesCount: { $size: "$candidates" }
+        }
+      },
+      {
+        $sort: {
+          created_at: -1
+        }
+      }
+    ]);
+
+    res.json(jobs);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/projects/:projectId/jobs/:jobId", async (req, res, next) => {
+  try {
+    const job = await Job.findOne({
+      _id: req.params.jobId,
+      project_id: req.params.projectId
+    }).lean();
+
+    if (!job) {
+      res.status(404).json({
+        success: false,
+        message: "Job not found."
+      });
+      return;
+    }
+
+    res.json(job);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/projects/:projectId/jobs/:jobId/candidates", async (req, res, next) => {
+  try {
+    const candidates = await Candidate.find({ job_id: req.params.jobId })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -347,15 +469,14 @@ app.get("/clients", async (_req, res, next) => {
 app.post("/jobs", async (req, res, next) => {
   try {
     const job = await Job.create({
+      project_id: req.body.project_id,
       title: req.body.title?.trim(),
-      client_id: req.body.client_id,
       location: req.body.location?.trim() || "",
       min_experience: Number(req.body.min_experience) || 0,
       max_experience: Number(req.body.max_experience) || 0,
       skills: Array.isArray(req.body.skills)
         ? req.body.skills.map((skill) => skill.trim()).filter(Boolean)
-        : [],
-      description: req.body.description?.trim() || ""
+        : []
     });
 
     res.status(201).json(job);
@@ -366,11 +487,7 @@ app.post("/jobs", async (req, res, next) => {
 
 app.get("/clients/:clientId/jobs", async (req, res, next) => {
   try {
-    const jobs = await Job.find({ client_id: req.params.clientId })
-      .sort({ created_at: -1 })
-      .lean();
-
-    res.json(jobs);
+    res.json([]);
   } catch (error) {
     next(error);
   }
@@ -386,7 +503,8 @@ app.get("/candidates", async (req, res, next) => {
       status = "",
       uploadedBy = "",
       contactAge = "",
-      projectId = ""
+      projectId = "",
+      jobId = ""
     } = req.query;
     const query = {};
 
@@ -402,8 +520,8 @@ app.get("/candidates", async (req, res, next) => {
       query.uploadedBy = { $regex: uploadedBy, $options: "i" };
     }
 
-    if (projectId) {
-      query.project_id = projectId;
+    if (jobId) {
+      query.job_id = jobId;
     }
 
     if (skills) {
@@ -516,15 +634,15 @@ app.post("/upload", upload.single("resume"), async (req, res, next) => {
       throw new Error("Could not extract readable text from this resume.");
     }
 
-    const { uploadedBy, project_id: projectId } = req.body;
-    const project = await Project.findById(projectId).lean();
+    const { uploadedBy, job_id: jobId } = req.body;
+    const job = await Job.findById(jobId).lean();
 
-    if (!project) {
-      throw new Error("Selected project was not found.");
+    if (!job) {
+      throw new Error("Selected job was not found.");
     }
 
     const parsedData = await parseResumeWithOpenAI(extractedText);
-    const saveResult = await saveCandidate(parsedData, uploadedBy, projectId);
+    const saveResult = await saveCandidate(parsedData, uploadedBy, jobId);
 
     res.json({
       success: true,

@@ -33,20 +33,10 @@ const candidateSchema = new mongoose.Schema(
       trim: true,
       required: true
     },
-    project_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Project",
-      default: null
-    },
-    client_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Client",
-      default: null
-    },
     job_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Job",
-      default: null
+      required: true
     },
     status: {
       type: String,

@@ -2,14 +2,14 @@ import mongoose from "mongoose";
 
 const jobSchema = new mongoose.Schema(
   {
+    project_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Project",
+      required: true
+    },
     title: {
       type: String,
       trim: true,
-      required: true
-    },
-    client_id: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Client",
       required: true
     },
     location: {
@@ -28,11 +28,6 @@ const jobSchema = new mongoose.Schema(
     skills: {
       type: [String],
       default: []
-    },
-    description: {
-      type: String,
-      trim: true,
-      default: ""
     },
     created_at: {
       type: Date,
