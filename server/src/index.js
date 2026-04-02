@@ -631,7 +631,7 @@ app.post("/upload", upload.single("resume"), async (req, res, next) => {
       throw new Error("Selected job was not found.");
     }
 
-    const resumeUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+    const resumeUrl = `/uploads/${req.file.filename}`;
     const parsedData = await parseResumeWithOpenAI(extractedText);
     const saveResult = await saveCandidate(parsedData, uploadedBy, jobId, resumeUrl);
 
