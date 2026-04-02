@@ -291,6 +291,7 @@ export default function JobDetailPage({
                 <th>Skills</th>
                 <th>Experience</th>
                 <th>Action</th>
+                <th>Resume</th>
                 <th>WhatsApp</th>
               </tr>
             </thead>
@@ -358,6 +359,21 @@ export default function JobDetailPage({
                         </button>
                       </td>
                       <td>
+                        {candidate.resume_url ? (
+                          <button
+                            className="table-button"
+                            type="button"
+                            onClick={() => window.open(candidate.resume_url, "_blank")}
+                          >
+                            View
+                          </button>
+                        ) : (
+                          <button className="table-button" type="button" disabled>
+                            No Resume
+                          </button>
+                        )}
+                      </td>
+                      <td>
                         {whatsAppLink ? (
                           <a
                             className="table-link"
@@ -378,7 +394,7 @@ export default function JobDetailPage({
                 })
               ) : (
                 <tr>
-                  <td colSpan="11" className="empty-state">
+                  <td colSpan="12" className="empty-state">
                     {isLoadingJob ? "Loading..." : "No candidates found for this job yet."}
                   </td>
                 </tr>

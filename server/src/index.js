@@ -61,6 +61,7 @@ const resumeSchema = {
 
 app.use(cors());
 app.use(express.json());
+app.use("/uploads", express.static(uploadsDir));
 
 fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -182,7 +183,7 @@ const parseResumeWithOpenAI = async (resumeText) => {
   return JSON.parse(outputText);
 };
 
-const saveCandidate = async (parsedData, uploadedBy, jobId) => {
+const saveCandidate = async (parsedData, uploadedBy, jobId, resumeUrl) => {
   const candidateData = {
     name: parsedData.name?.trim() || "",
     phone: normalizePhone(parsedData.phone),
@@ -194,7 +195,8 @@ const saveCandidate = async (parsedData, uploadedBy, jobId) => {
     skills: Array.isArray(parsedData.skills)
       ? [...new Set(parsedData.skills.map((skill) => skill.trim()).filter(Boolean))]
       : [],
-    experience: parsedData.experience?.trim() || ""
+    experience: parsedData.experience?.trim() || "",
+    resume_url: resumeUrl || ""
   };
 
   if (!candidateData.phone) {
@@ -232,7 +234,8 @@ const saveCandidate = async (parsedData, uploadedBy, jobId) => {
       remarks: savedCandidate.remarks,
       lastContacted: savedCandidate.lastContacted,
       skills: savedCandidate.skills,
-      experience: savedCandidate.experience
+      experience: savedCandidate.experience,
+      resume_url: savedCandidate.resume_url
     }
   };
 };
@@ -628,8 +631,9 @@ app.post("/upload", upload.single("resume"), async (req, res, next) => {
       throw new Error("Selected job was not found.");
     }
 
+    const resumeUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
     const parsedData = await parseResumeWithOpenAI(extractedText);
-    const saveResult = await saveCandidate(parsedData, uploadedBy, jobId);
+    const saveResult = await saveCandidate(parsedData, uploadedBy, jobId, resumeUrl);
 
     res.json({
       success: true,

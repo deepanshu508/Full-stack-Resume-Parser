@@ -61,6 +61,11 @@ const candidateSchema = new mongoose.Schema(
       trim: true,
       default: ""
     },
+    resume_url: {
+      type: String,
+      trim: true,
+      default: ""
+    },
     createdAt: {
       type: Date,
       default: Date.now

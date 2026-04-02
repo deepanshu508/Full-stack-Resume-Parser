@@ -179,6 +179,7 @@ export default function DashboardPage({
                 <th>Skills</th>
                 <th>Experience</th>
                 <th>Action</th>
+                <th>Resume</th>
                 <th>WhatsApp</th>
               </tr>
             </thead>
@@ -257,6 +258,21 @@ export default function DashboardPage({
                         </button>
                       </td>
                       <td>
+                        {candidate.resume_url ? (
+                          <button
+                            className="table-button"
+                            type="button"
+                            onClick={() => window.open(candidate.resume_url, "_blank")}
+                          >
+                            View
+                          </button>
+                        ) : (
+                          <button className="table-button" type="button" disabled>
+                            No Resume
+                          </button>
+                        )}
+                      </td>
+                      <td>
                         {whatsAppLink ? (
                           <a
                             className="table-link"
@@ -277,7 +293,7 @@ export default function DashboardPage({
                 })
               ) : (
                 <tr>
-                  <td colSpan="13" className="empty-state">
+                  <td colSpan="14" className="empty-state">
                     {isLoadingCandidates
                       ? "Loading..."
                       : "No candidates found. Start by creating a project and job, then upload resumes."}
