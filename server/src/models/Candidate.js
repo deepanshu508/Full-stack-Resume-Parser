@@ -33,6 +33,16 @@ const candidateSchema = new mongoose.Schema(
       trim: true,
       required: true
     },
+    client_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Client",
+      required: true
+    },
+    job_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Job",
+      required: true
+    },
     status: {
       type: String,
       enum: allowedStatuses,

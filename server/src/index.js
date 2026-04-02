@@ -10,6 +10,8 @@ import mammoth from "mammoth";
 import OpenAI from "openai";
 import pdfParse from "pdf-parse";
 import Candidate from "./models/Candidate.js";
+import Client from "./models/Client.js";
+import Job from "./models/Job.js";
 
 dotenv.config();
 
@@ -179,12 +181,14 @@ const parseResumeWithOpenAI = async (resumeText) => {
   return JSON.parse(outputText);
 };
 
-const saveCandidate = async (parsedData, uploadedBy) => {
+const saveCandidate = async (parsedData, uploadedBy, clientId, jobId) => {
   const candidateData = {
     name: parsedData.name?.trim() || "",
     phone: normalizePhone(parsedData.phone),
     location: parsedData.location?.trim() || "",
     uploadedBy: uploadedBy?.trim() || "",
+    client_id: clientId,
+    job_id: jobId,
     status: "New",
     remarks: "",
     skills: Array.isArray(parsedData.skills)
@@ -199,6 +203,14 @@ const saveCandidate = async (parsedData, uploadedBy) => {
 
   if (!candidateData.uploadedBy) {
     throw new Error("Uploader name or email is required.");
+  }
+
+  if (!candidateData.client_id) {
+    throw new Error("Client is required.");
+  }
+
+  if (!candidateData.job_id) {
+    throw new Error("Job is required.");
   }
 
   const existingCandidate = await Candidate.findOne({ phone: candidateData.phone }).lean();
@@ -219,6 +231,8 @@ const saveCandidate = async (parsedData, uploadedBy) => {
       phone: savedCandidate.phone || "",
       location: savedCandidate.location,
       uploadedBy: savedCandidate.uploadedBy,
+      client_id: savedCandidate.client_id,
+      job_id: savedCandidate.job_id,
       status: savedCandidate.status,
       remarks: savedCandidate.remarks,
       lastContacted: savedCandidate.lastContacted,
@@ -232,55 +246,57 @@ app.get("/health", (_req, res) => {
   res.send("Server running");
 });
 
-app.get("/recruiter-stats", async (_req, res, next) => {
+app.post("/clients", async (req, res, next) => {
   try {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const client = await Client.create({
+      name: req.body.name?.trim(),
+      industry: req.body.industry?.trim() || "",
+      contact_person: req.body.contact_person?.trim() || "",
+      email: req.body.email?.trim() || ""
+    });
 
-    const stats = await Candidate.aggregate([
-      {
-        $group: {
-          _id: "$uploadedBy",
-          addedToday: {
-            $sum: {
-              $cond: [{ $gte: ["$createdAt", startOfToday] }, 1, 0]
-            }
-          },
-          contacted: {
-            $sum: {
-              $cond: [{ $eq: ["$status", "Contacted"] }, 1, 0]
-            }
-          },
-          interested: {
-            $sum: {
-              $cond: [{ $eq: ["$status", "Interested"] }, 1, 0]
-            }
-          },
-          selected: {
-            $sum: {
-              $cond: [{ $eq: ["$status", "Selected"] }, 1, 0]
-            }
-          }
-        }
-      },
-      {
-        $project: {
-          _id: 0,
-          uploadedBy: "$_id",
-          addedToday: 1,
-          contacted: 1,
-          interested: 1,
-          selected: 1
-        }
-      },
-      {
-        $sort: {
-          uploadedBy: 1
-        }
-      }
-    ]);
+    res.status(201).json(client);
+  } catch (error) {
+    next(error);
+  }
+});
 
-    res.json(stats);
+app.get("/clients", async (_req, res, next) => {
+  try {
+    const clients = await Client.find().sort({ created_at: -1 }).lean();
+    res.json(clients);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/jobs", async (req, res, next) => {
+  try {
+    const job = await Job.create({
+      title: req.body.title?.trim(),
+      client_id: req.body.client_id,
+      location: req.body.location?.trim() || "",
+      min_experience: Number(req.body.min_experience) || 0,
+      max_experience: Number(req.body.max_experience) || 0,
+      skills: Array.isArray(req.body.skills)
+        ? req.body.skills.map((skill) => skill.trim()).filter(Boolean)
+        : [],
+      description: req.body.description?.trim() || ""
+    });
+
+    res.status(201).json(job);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/clients/:clientId/jobs", async (req, res, next) => {
+  try {
+    const jobs = await Job.find({ client_id: req.params.clientId })
+      .sort({ created_at: -1 })
+      .lean();
+
+    res.json(jobs);
   } catch (error) {
     next(error);
   }
@@ -421,8 +437,22 @@ app.post("/upload", upload.single("resume"), async (req, res, next) => {
       throw new Error("Could not extract readable text from this resume.");
     }
 
+    const { uploadedBy, client_id: clientId, job_id: jobId } = req.body;
+    const [client, job] = await Promise.all([
+      Client.findById(clientId).lean(),
+      Job.findById(jobId).lean()
+    ]);
+
+    if (!client) {
+      throw new Error("Selected client was not found.");
+    }
+
+    if (!job || String(job.client_id) !== String(clientId)) {
+      throw new Error("Selected job was not found for this client.");
+    }
+
     const parsedData = await parseResumeWithOpenAI(extractedText);
-    const saveResult = await saveCandidate(parsedData, req.body.uploadedBy);
+    const saveResult = await saveCandidate(parsedData, uploadedBy, clientId, jobId);
 
     res.json({
       success: true,

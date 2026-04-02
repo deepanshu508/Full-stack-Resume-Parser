@@ -90,6 +90,10 @@ export default function App() {
   const [message, setMessage] = useState("Loading...");
   const [file, setFile] = useState(null);
   const [uploadedBy, setUploadedBy] = useState("");
+  const [clients, setClients] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [selectedJobId, setSelectedJobId] = useState("");
   const [uploadMessage, setUploadMessage] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [parsedResume, setParsedResume] = useState(null);
@@ -109,20 +113,39 @@ export default function App() {
     "interviewInvite"
   );
   const [selectedCandidateIds, setSelectedCandidateIds] = useState([]);
-  const [recruiterStats, setRecruiterStats] = useState([]);
 
-  const fetchRecruiterStats = async () => {
+  const fetchClients = async () => {
     try {
-      const response = await fetch(`${apiUrl}/recruiter-stats`);
+      const response = await fetch(`${apiUrl}/clients`);
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error("Could not load recruiter stats.");
+        throw new Error("Could not load clients.");
       }
 
-      setRecruiterStats(Array.isArray(data) ? data : []);
+      setClients(Array.isArray(data) ? data : []);
     } catch (_error) {
-      setRecruiterStats([]);
+      setClients([]);
+    }
+  };
+
+  const fetchJobsByClient = async (clientId) => {
+    if (!clientId) {
+      setJobs([]);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${apiUrl}/clients/${clientId}/jobs`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error("Could not load jobs.");
+      }
+
+      setJobs(Array.isArray(data) ? data : []);
+    } catch (_error) {
+      setJobs([]);
     }
   };
 
@@ -197,7 +220,7 @@ export default function App() {
 
     fetchHealth();
     fetchCandidates();
-    fetchRecruiterStats();
+    fetchClients();
   }, []);
 
   const handleSubmit = async (event) => {
@@ -213,9 +236,21 @@ export default function App() {
       return;
     }
 
+    if (!selectedClientId) {
+      setUploadMessage("Please select a client.");
+      return;
+    }
+
+    if (!selectedJobId) {
+      setUploadMessage("Please select a job.");
+      return;
+    }
+
     const formData = new FormData();
     formData.append("resume", file);
     formData.append("uploadedBy", uploadedBy.trim());
+    formData.append("client_id", selectedClientId);
+    formData.append("job_id", selectedJobId);
 
     try {
       setIsUploading(true);
@@ -248,7 +283,6 @@ export default function App() {
       setFile(null);
       event.target.reset();
       fetchCandidates();
-      fetchRecruiterStats();
     } catch (error) {
       setUploadMessage(error.message || "Upload failed.");
     } finally {
@@ -300,7 +334,6 @@ export default function App() {
           item._id === candidate._id ? data.candidate : item
         )
       );
-      fetchRecruiterStats();
     } catch (error) {
       setUploadMessage(error.message || "Could not update candidate.");
     } finally {
@@ -412,23 +445,6 @@ export default function App() {
   return (
     <main className="app">
       <div className="layout">
-        {recruiterStats.length ? (
-          <section className="stats-grid">
-            {recruiterStats.map((stat) => (
-              <article
-                className="stats-card"
-                key={stat.uploadedBy}
-              >
-                <h2>{stat.uploadedBy}</h2>
-                <p>Added Today: {stat.addedToday}</p>
-                <p>Contacted: {stat.contacted}</p>
-                <p>Interested: {stat.interested}</p>
-                <p>Selected: {stat.selected}</p>
-              </article>
-            ))}
-          </section>
-        ) : null}
-
         <section className="card upload-card">
           <h1>Candidate Dashboard</h1>
           <p className="status">{message}</p>
@@ -445,6 +461,44 @@ export default function App() {
                 setUploadMessage("");
               }}
             />
+            <label htmlFor="client">Select client</label>
+            <select
+              id="client"
+              className="filter-select"
+              value={selectedClientId}
+              onChange={(event) => {
+                const clientId = event.target.value;
+                setSelectedClientId(clientId);
+                setSelectedJobId("");
+                setUploadMessage("");
+                fetchJobsByClient(clientId);
+              }}
+            >
+              <option value="">Choose client</option>
+              {clients.map((client) => (
+                <option key={client._id} value={client._id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+            <label htmlFor="job">Select job</label>
+            <select
+              id="job"
+              className="filter-select"
+              value={selectedJobId}
+              onChange={(event) => {
+                setSelectedJobId(event.target.value);
+                setUploadMessage("");
+              }}
+              disabled={!selectedClientId}
+            >
+              <option value="">Choose job</option>
+              {jobs.map((job) => (
+                <option key={job._id} value={job._id}>
+                  {job.title}
+                </option>
+              ))}
+            </select>
             <label htmlFor="resume">Upload resume</label>
             <input
               id="resume"
